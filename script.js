@@ -33,6 +33,16 @@ document.addEventListener("DOMContentLoaded", async () => {
     const categoriesBar = document.getElementById("categories-bar");
     const searchInput = document.querySelector(".search-input");
 
+    // Seletores do popup de detalhes do produto
+    const productModalOverlay = document.getElementById("product-modal-overlay"),
+        productModalCloseBtn = document.getElementById("product-modal-close"),
+        productModalImg = document.getElementById("product-modal-img"),
+        productModalDestaque = document.getElementById("product-modal-destaque"),
+        productModalNome = document.getElementById("product-modal-nome"),
+        productModalDescricao = document.getElementById("product-modal-descricao"),
+        productModalPreco = document.getElementById("product-modal-preco"),
+        productModalComprarBtn = document.getElementById("product-modal-comprar");
+
     // --- CARREGAR PRODUTOS DO FIREBASE ---
     // Busca todos (inclusive inativos) — os inativos aparecem na loja com selo ESGOTADO
     // em vez de sumir, para o cliente ver que o produto existe mas está fora de estoque.
@@ -240,7 +250,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         return `
             <div class="product-card" data-id="${p.id}" style="position:relative">
                 ${badgeEsgotado}
-                <img class="product-img" src="${p.imagem}" alt="${p.nome}">
+                <img class="product-img" src="${p.imagem}" alt="${p.nome}" onerror="this.onerror=null;this.src='./assets/placeholder.svg'">
                 ${galeriaThumbs}
                 <div class="product-info">
                     <h3 class="product-name">${p.nome}</h3>
@@ -302,25 +312,98 @@ document.addEventListener("DOMContentLoaded", async () => {
         destaquesContainer.innerHTML = produtosDestaque.map(criarCardProduto).join("");
     };
 
-    const adicionarAoCarrinho = (produtoId, productCard) => {
+    // --- POPUP DE DETALHES DO PRODUTO ---
+    // Guarda o produto aberto no popup e as opções de variação (Cor,
+    // Tamanho...) que o cliente já escolheu, enquanto o popup está aberto.
+    let modalProdutoAtual = null;
+    let modalVariacoesEscolhidas = {};
+
+    const renderizarVariacoesNoModal = (produto) => {
+        const cont = document.getElementById("product-modal-variacoes");
+        const variacoes = produto.variacoes || [];
+        if (!variacoes.length) { cont.innerHTML = ""; return; }
+        cont.innerHTML = variacoes
+            .map(
+                (grupo) => `
+                    <div class="variacao-grupo">
+                        <div class="variacao-grupo-nome">${grupo.tipoNome}</div>
+                        <div class="variacao-opcoes">
+                            ${grupo.opcoes
+                                .map(
+                                    (opcao) => `
+                                        <button type="button" class="variacao-opcao-btn" data-tipo-id="${grupo.tipoId}" data-tipo-nome="${grupo.tipoNome}" data-opcao="${opcao}">${opcao}</button>
+                                    `,
+                                )
+                                .join("")}
+                        </div>
+                    </div>`,
+            )
+            .join("") + `<p class="variacao-aviso" id="variacao-aviso">Escolha uma opção de cada variação antes de comprar.</p>`;
+    };
+
+    // Só libera o botão "Comprar" quando todo grupo de variação (se o
+    // produto tiver algum) já tem uma opção escolhida.
+    const atualizarBotaoComprarModal = () => {
+        if (!modalProdutoAtual) return;
+        const variacoes = modalProdutoAtual.variacoes || [];
+        const faltaEscolher = variacoes.some((g) => !modalVariacoesEscolhidas[g.tipoId]);
+        productModalComprarBtn.disabled = faltaEscolher;
+        const aviso = document.getElementById("variacao-aviso");
+        if (aviso) aviso.classList.toggle("show", faltaEscolher && variacoes.length > 0);
+    };
+
+    const abrirModalProduto = (produtoId) => {
+        const produto = produtos.find((p) => p.id === produtoId);
+        if (!produto) return;
+
+        productModalImg.src = produto.imagem;
+        productModalImg.alt = produto.nome;
+        productModalDestaque.style.display = produto.destaque ? "flex" : "none";
+        productModalNome.textContent = produto.nome;
+        productModalDescricao.textContent = produto.descricao || "";
+        productModalPreco.textContent = formatarMoeda(produto.preco);
+        productModalComprarBtn.dataset.id = produto.id;
+
+        modalProdutoAtual = produto;
+        modalVariacoesEscolhidas = {};
+        renderizarVariacoesNoModal(produto);
+        atualizarBotaoComprarModal();
+
+        productModalOverlay.classList.add("show");
+        lockScroll();
+    };
+    const fecharModalProduto = () => {
+        productModalOverlay.classList.remove("show");
+        unlockScroll();
+    };
+
+    // variacaoEscolhida é um texto tipo "Cor: Azul" (ou null se o produto não
+    // tem variação). Dois itens do mesmo produto com variações diferentes
+    // viram linhas separadas no carrinho — só juntam a quantidade se a
+    // variação escolhida for igual.
+    const adicionarAoCarrinho = (produtoId, productCard, variacaoEscolhida = null) => {
         if (productCard) animacaoVoarParaCarrinho(productCard);
         const produto = produtos.find((p) => p.id === produtoId);
         if (!produto) return;
 
-        const itemNoCarrinho = carrinho.find((item) => item.id === produtoId);
+        const itemNoCarrinho = carrinho.find(
+            (item) => item.id === produtoId && (item.variacaoEscolhida || null) === (variacaoEscolhida || null),
+        );
         if (itemNoCarrinho) itemNoCarrinho.quantidade++;
-        else carrinho.push({ ...produto, quantidade: 1 });
+        else carrinho.push({ ...produto, quantidade: 1, variacaoEscolhida });
         atualizarCarrinho();
     };
 
-    const alterarQuantidade = (produtoId, acao) => {
-        const item = carrinho.find((i) => i.id === produtoId);
+    // Endereça a linha do carrinho pela posição no array, não pelo id do
+    // produto — assim funciona certo mesmo com duas linhas do mesmo produto
+    // (variações diferentes) ao mesmo tempo.
+    const alterarQuantidade = (index, acao) => {
+        const item = carrinho[index];
         if (!item) return;
         if (acao === "aumentar") item.quantidade++;
         else if (acao === "diminuir") {
             item.quantidade--;
-            if (item.quantidade <= 0)
-                carrinho = carrinho.filter((i) => i.id !== produtoId);
+            if (item.quantidade <= 0) carrinho.splice(index, 1);
         }
         atualizarCarrinho();
     };
@@ -331,11 +414,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         } else {
             cartBody.innerHTML = carrinho
                 .map(
-                    (item) =>
-                        `<div class="cart-item" data-id="${item.id}">
-                            <img src="${item.imagem}" alt="${item.nome}" class="cart-item-img">
+                    (item, index) =>
+                        `<div class="cart-item" data-index="${index}">
+                            <img src="${item.imagem}" alt="${item.nome}" class="cart-item-img" onerror="this.onerror=null;this.src='./assets/placeholder.svg'">
                             <div class="cart-item-info">
                                 <h4 class="cart-item-name">${item.nome}</h4>
+                                ${item.variacaoEscolhida ? `<p class="cart-item-variacao">${item.variacaoEscolhida}</p>` : ""}
                                 <p class="cart-item-price">${formatarMoeda(item.preco)}</p>
                                 <div class="cart-item-controls">
                                     <button class="quantity-btn" data-action="diminuir">-</button>
@@ -497,7 +581,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
         const numeroWhatsApp = configLoja.whatsapp;
         const itensPedido = carrinho
-            .map((item) => `  - ${item.quantidade}x ${item.nome}`)
+            .map((item) => `  - ${item.quantidade}x ${item.nome}${item.variacaoEscolhida ? ` (${item.variacaoEscolhida})` : ""}`)
             .join("\n");
         const subtotal = carrinho.reduce(
             (acc, item) => acc + item.preco * item.quantidade,
@@ -554,7 +638,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         // Salva o pedido no Firestore para ficar no histórico do admin (não bloqueia o checkout se falhar)
         try {
             await db.collection("pedidos").add({
-                itens: carrinho.map((item) => ({ nome: item.nome, preco: item.preco, qtd: item.quantidade })),
+                itens: carrinho.map((item) => ({ nome: item.nome, preco: item.preco, qtd: item.quantidade, variacao: item.variacaoEscolhida || null })),
                 subtotal,
                 desconto: discountAmount,
                 total,
@@ -606,10 +690,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     document.body.addEventListener("click", (e) => {
         if (e.target.matches(".product-button")) {
             const productCard = e.target.closest(".product-card");
-            adicionarAoCarrinho(
-                Number.parseInt(productCard.dataset.id),
-                productCard,
-            );
+            const produtoId = Number.parseInt(productCard.dataset.id);
+            const produtoClicado = produtos.find((p) => p.id === produtoId);
+            // Produto com variação (Cor, Tamanho...) precisa passar pelo
+            // popup pra escolher a opção antes de ir pro carrinho.
+            if (produtoClicado && (produtoClicado.variacoes || []).length) {
+                abrirModalProduto(produtoId);
+                return;
+            }
+            adicionarAoCarrinho(produtoId, productCard);
             return;
         }
 
@@ -619,16 +708,55 @@ document.addEventListener("DOMContentLoaded", async () => {
             productCard.querySelector(".product-img").src = thumb.dataset.img;
             productCard.querySelectorAll(".thumb-dot").forEach((d) => d.classList.remove("active"));
             thumb.classList.add("active");
+            return;
         }
+
+        // Clique em qualquer outra parte do card (imagem, nome, descrição)
+        // abre o popup com os detalhes do produto.
+        const cardClicado = e.target.closest(".product-card");
+        if (cardClicado) abrirModalProduto(Number.parseInt(cardClicado.dataset.id));
+    });
+
+    productModalCloseBtn.addEventListener("click", fecharModalProduto);
+    productModalOverlay.addEventListener("click", (e) => {
+        if (e.target === productModalOverlay) fecharModalProduto();
+    });
+    document.getElementById("product-modal-variacoes").addEventListener("click", (e) => {
+        const btn = e.target.closest(".variacao-opcao-btn");
+        if (!btn) return;
+        modalVariacoesEscolhidas[btn.dataset.tipoId] = {
+            tipoNome: btn.dataset.tipoNome,
+            opcao: btn.dataset.opcao,
+        };
+        // desmarca só os outros botões do mesmo grupo de variação
+        btn.closest(".variacao-opcoes")
+            .querySelectorAll(".variacao-opcao-btn")
+            .forEach((b) => b.classList.remove("selecionada"));
+        btn.classList.add("selecionada");
+        atualizarBotaoComprarModal();
+    });
+    productModalComprarBtn.addEventListener("click", () => {
+        if (productModalComprarBtn.disabled) return;
+        const produtoId = Number.parseInt(productModalComprarBtn.dataset.id);
+        const escolhas = Object.values(modalVariacoesEscolhidas);
+        const variacaoEscolhida = escolhas.length
+            ? escolhas.map((v) => `${v.tipoNome}: ${v.opcao}`).join(", ")
+            : null;
+        adicionarAoCarrinho(produtoId, null, variacaoEscolhida);
+        fecharModalProduto();
+        abrirCarrinho();
+    });
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && productModalOverlay.classList.contains("show")) fecharModalProduto();
     });
     cartBody.addEventListener("click", (e) => {
         const cartItem = e.target.closest(".cart-item");
         if (cartItem) {
-            const produtoId = Number.parseInt(cartItem.dataset.id);
+            const index = Number.parseInt(cartItem.dataset.index);
             if (e.target.matches(".quantity-btn"))
-                alterarQuantidade(produtoId, e.target.dataset.action);
+                alterarQuantidade(index, e.target.dataset.action);
             if (e.target.matches(".remove-item-btn")) {
-                carrinho = carrinho.filter((i) => i.id !== produtoId);
+                carrinho.splice(index, 1);
                 atualizarCarrinho();
             }
         }

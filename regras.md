@@ -37,13 +37,18 @@ service cloud.firestore {
       allow create: if true;
       allow read, update, delete: if request.auth != null;
     }
+
+    match /tiposVariacao/{doc} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
   }
 }
 ```
 
 ## O que essas regras fazem
 
-- **produtos, categorias, cupons, configuracoes**: qualquer visitante da loja pode *ler* (necessário para o site funcionar sem login), mas só usuários logados no admin podem *escrever* (criar, editar, excluir).
+- **produtos, categorias, cupons, configuracoes, tiposVariacao**: qualquer visitante da loja pode *ler* (necessário para o site funcionar sem login), mas só usuários logados no admin podem *escrever* (criar, editar, excluir).
 - **vendas**: dado sensível (faturamento) — só usuários logados podem ler ou escrever. Não é público.
 - **pedidos**: histórico de pedidos feitos pelo site. Qualquer visitante pode *criar* um pedido (é o próprio cliente, no checkout, que grava), mas só o admin logado pode *ler, editar ou apagar* — sem essa restrição, qualquer pessoa poderia ver nome, telefone e endereço de todos os clientes que já compraram.
 

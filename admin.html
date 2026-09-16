@@ -121,6 +121,17 @@
     .cat-icon { width: 36px; height: 36px; background: var(--surface); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--gold); font-size: .9rem; }
     .cat-name { font-size: .9rem; font-weight: 600; }
     .cat-id   { font-size: .75rem; color: var(--muted); }
+    .tipo-var-card { background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 10px; }
+    .tipo-var-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+    .tipo-var-nome { font-size: .95rem; font-weight: 700; }
+    .tipo-var-opcoes { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip-opcao { background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 3px 11px; font-size: .76rem; color: var(--muted); }
+    .chip-opcao-editavel { display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 4px 6px 4px 12px; font-size: .82rem; }
+    .chip-opcao-editavel button { background: none; border: none; color: var(--red); cursor: pointer; font-size: .8rem; padding: 2px 4px; }
+    .form-variacao-tipo { border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+    .form-variacao-tipo-nome { font-size: .82rem; font-weight: 700; margin-bottom: 8px; }
+    .form-variacao-opcoes { display: flex; flex-wrap: wrap; gap: 10px; }
+    .form-variacao-opcoes label { display: flex; align-items: center; gap: 5px; font-size: .82rem; cursor: pointer; }
     #toast { position: fixed; bottom: 24px; right: 24px; background: var(--card); border: 1px solid var(--border); border-radius: 10px; padding: 12px 20px; font-size: .88rem; z-index: 9999; transform: translateY(80px); opacity: 0; transition: .3s; max-width: 320px; display: flex; align-items: center; gap: 10px; }
     #toast.show { transform: translateY(0); opacity: 1; }
     #toast.ok  { border-color: var(--green); color: var(--green); }
@@ -214,6 +225,7 @@
   <div class="sidebar" id="sidebar">
     <button class="side-btn active" onclick="mudarTab('produtos',this)"><i class="fa-solid fa-box"></i> Produtos</button>
     <button class="side-btn" onclick="mudarTab('categorias',this)"><i class="fa-solid fa-tags"></i> Categorias</button>
+    <button class="side-btn" onclick="mudarTab('variacoes',this)"><i class="fa-solid fa-shirt"></i> Variações</button>
     <button class="side-btn" onclick="mudarTab('cupons',this)"><i class="fa-solid fa-ticket"></i> Cupons</button>
     <button class="side-btn" onclick="mudarTab('pedidos',this)"><i class="fa-solid fa-receipt"></i> Pedidos Online</button>
     <button class="side-btn" onclick="mudarTab('pdv',this)"><i class="fa-solid fa-cash-register"></i> PDV</button>
@@ -253,6 +265,17 @@
         <button class="btn btn-primary" onclick="abrirModalCategoria()"><i class="fa-solid fa-plus"></i> Nova Categoria</button>
       </div>
       <div class="cat-grid" id="cat-grid"><div class="loader"><i class="fa-solid fa-spinner"></i> Carregando...</div></div>
+    </div>
+
+    <div id="tab-variacoes" class="tab-panel">
+      <div class="toolbar">
+        <button class="btn btn-primary" onclick="abrirModalTipoVariacao()"><i class="fa-solid fa-plus"></i> Novo Tipo</button>
+      </div>
+      <p style="font-size:.82rem;color:var(--muted);margin-bottom:16px">
+        Cadastre aqui os tipos de variação da loja (Cor, Tamanho, Voltagem...) e as opções de cada um.
+        Depois, em cada produto, você escolhe quais dessas opções ele oferece.
+      </p>
+      <div class="cat-grid" id="variacoes-grid"><div class="loader"><i class="fa-solid fa-spinner"></i> Carregando...</div></div>
     </div>
 
     <div id="tab-cupons" class="tab-panel">
@@ -524,6 +547,10 @@
         <label class="toggle-row"><input type="checkbox" id="form-ativo" checked> Produto ativo (visível na loja)</label>
         <label class="toggle-row"><input type="checkbox" id="form-destaque"> Destaque</label>
       </div>
+      <div class="form-group full">
+        <label>Variações <small style="color:var(--muted)">(opcional — marque as opções que este produto oferece)</small></label>
+        <div id="form-variacoes-lista" style="display:flex;flex-direction:column;gap:8px;margin-top:6px"></div>
+      </div>
     </div>
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="fecharModal('modal-produto')">Cancelar</button>
@@ -546,6 +573,28 @@
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="fecharModal('modal-categoria')">Cancelar</button>
       <button class="btn btn-primary" onclick="salvarCategoria()"><i class="fa-solid fa-floppy-disk"></i> Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL TIPO DE VARIAÇÃO -->
+<div class="modal-overlay" id="modal-tipo-variacao">
+  <div class="modal">
+    <button class="modal-close" onclick="fecharModal('modal-tipo-variacao')">&times;</button>
+    <h2 id="tipo-variacao-titulo"><i class="fa-solid fa-shirt"></i> Tipo de variação</h2>
+    <input type="hidden" id="tipo-var-id-original">
+    <div class="form-group full"><label>Nome do tipo *</label><input type="text" id="tipo-var-nome" placeholder="Ex: Cor, Tamanho, Voltagem..."></div>
+    <div class="form-group full" style="margin-top:14px">
+      <label>Opções</label>
+      <div style="display:flex;gap:8px;margin-bottom:10px">
+        <input type="text" id="tipo-var-opcao-input" placeholder="Ex: Azul" style="flex:1">
+        <button type="button" class="btn btn-ghost" onclick="adicionarOpcaoTipoVariacao()"><i class="fa-solid fa-plus"></i> Adicionar</button>
+      </div>
+      <div class="tipo-var-opcoes" id="tipo-var-opcoes-lista"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="fecharModal('modal-tipo-variacao')">Cancelar</button>
+      <button class="btn btn-primary" onclick="salvarTipoVariacao()"><i class="fa-solid fa-floppy-disk"></i> Salvar</button>
     </div>
   </div>
 </div>
@@ -633,10 +682,11 @@ auth.onAuthStateChanged(user => {
 let todosProdutos   = [];
 let todasCategorias = [];
 let todosCupons     = [];
+let todosTiposVariacao = [];
 let _arquivosSelecionados = { 1: null, 2: null };
 
 // ── INIT ──────────────────────────────────────────────────────────────────
-async function inicializar() { await Promise.all([carregarCategorias(), carregarProdutos(), carregarCupons(), carregarConfiguracoes(), carregarVendasHoje(), carregarPedidos()]); }
+async function inicializar() { await Promise.all([carregarCategorias(), carregarProdutos(), carregarCupons(), carregarConfiguracoes(), carregarVendasHoje(), carregarPedidos(), carregarTiposVariacao()]); }
 
 // ── TABS ──────────────────────────────────────────────────────────────────
 function mudarTab(tab, btn) {
@@ -839,6 +889,7 @@ function abrirModalCriar() {
   document.getElementById("form-descricao").value= "";
   document.getElementById("form-ativo").checked  = true;
   document.getElementById("form-destaque").checked = false;
+  renderizarVariacoesNoFormProduto(null);
   resetarUpload(1);
   resetarUpload(2);
   abrirModal("modal-produto");
@@ -857,9 +908,33 @@ function abrirModalEditar(docId) {
   document.getElementById("form-ativo").checked      = p.ativo !== false;
   document.getElementById("form-destaque").checked   = !!p.destaque;
   setTimeout(() => { document.getElementById("form-categoria").value = p.categoria || ""; }, 0);
+  renderizarVariacoesNoFormProduto(p);
   resetarUpload(1);
   resetarUpload(2);
   abrirModal("modal-produto");
+}
+
+// Desenha, dentro do formulário de produto, um bloco de checkboxes por tipo
+// de variação cadastrado, marcando as opções que o produto já usa (edição).
+function renderizarVariacoesNoFormProduto(produto) {
+  const cont = document.getElementById("form-variacoes-lista");
+  if (!todosTiposVariacao.length) {
+    cont.innerHTML = `<p style="font-size:.78rem;color:var(--muted)">Nenhum tipo de variação cadastrado ainda. Cadastre em Produtos → Variações.</p>`;
+    return;
+  }
+  const variacoesAtuais = produto?.variacoes || [];
+  cont.innerHTML = todosTiposVariacao.map(t => {
+    const selecionadas = variacoesAtuais.find(v => v.tipoId === t.id)?.opcoes || [];
+    return `
+      <div class="form-variacao-tipo">
+        <div class="form-variacao-tipo-nome">${t.nome}</div>
+        <div class="form-variacao-opcoes">
+          ${(t.opcoes || []).map(o => `
+            <label><input type="checkbox" class="form-variacao-opcao-check" data-tipo-id="${t.id}" data-tipo-nome="${t.nome}" value="${o}" ${selecionadas.includes(o) ? "checked" : ""}> ${o}</label>
+          `).join("")}
+        </div>
+      </div>`;
+  }).join("");
 }
 
 async function salvarProduto() {
@@ -884,7 +959,16 @@ async function salvarProduto() {
     return;
   }
 
-  const dados = { nome, categoria, preco, imagem, imagem2, descricao, ativo, destaque };
+  // Junta as variações marcadas (Cor, Tamanho...) por tipo
+  const variacoesMap = {};
+  document.querySelectorAll(".form-variacao-opcao-check:checked").forEach(chk => {
+    const tipoId = chk.dataset.tipoId;
+    if (!variacoesMap[tipoId]) variacoesMap[tipoId] = { tipoId, tipoNome: chk.dataset.tipoNome, opcoes: [] };
+    variacoesMap[tipoId].opcoes.push(chk.value);
+  });
+  const variacoes = Object.values(variacoesMap);
+
+  const dados = { nome, categoria, preco, imagem, imagem2, descricao, ativo, destaque, variacoes };
   try {
     if (docId) {
       await db.collection("produtos").doc(docId).update(dados);
@@ -923,7 +1007,7 @@ function renderizarPedidos(pedidos) {
   tbody.innerHTML = pedidos.map(p => {
     const dt = p.criadoEm?.toDate ? p.criadoEm.toDate() : null;
     const data = dt ? dt.toLocaleString("pt-BR") : "–";
-    const itensTxt = (p.itens || []).map(i => `${i.qtd}x ${i.nome}`).join(", ");
+    const itensTxt = (p.itens || []).map(i => `${i.qtd}x ${i.nome}${i.variacao ? ` (${i.variacao})` : ""}`).join(", ");
     const atendido = !!p.atendido;
     const cliente = p.cliente || {};
     return `
@@ -1038,6 +1122,160 @@ async function salvarCategoria() {
     await carregarCategorias();
     popularSelectCategorias();
   } catch(e) { toast("Erro: " + e.message, "err"); }
+}
+
+// ── TIPOS DE VARIAÇÃO (Cor, Tamanho, etc.) ──────────────────────────────────
+// Catálogo reutilizável, no mesmo espírito de Categorias: cadastra o tipo e
+// as opções uma vez, e cada produto só escolhe quais opções ele oferece.
+async function carregarTiposVariacao() {
+  try {
+    const snap = await db.collection("tiposVariacao").get();
+    todosTiposVariacao = snap.docs.map(d => ({ docId: d.id, ...d.data() }));
+  } catch(e) {
+    todosTiposVariacao = [];
+    toast("Erro ao carregar tipos de variação: " + e.message, "err");
+  }
+  renderizarTiposVariacao();
+}
+
+function renderizarTiposVariacao() {
+  const grid = document.getElementById("variacoes-grid");
+  if (!todosTiposVariacao.length) {
+    grid.innerHTML = `<div class="empty-state"><i class="fa-solid fa-shirt"></i><p>Nenhum tipo de variação cadastrado.</p></div>`;
+    return;
+  }
+  grid.innerHTML = todosTiposVariacao.map(t => `
+    <div class="tipo-var-card">
+      <div class="tipo-var-card-head">
+        <div class="tipo-var-nome">${t.nome}</div>
+        <div style="display:flex;gap:6px;flex-shrink:0">
+          <button class="btn btn-ghost btn-sm" onclick="abrirModalTipoVariacaoEditar('${t.docId}')"><i class="fa-solid fa-pen"></i></button>
+          <button class="btn btn-danger btn-sm" onclick="confirmarExclusaoTipoVariacao('${t.docId}','${(t.nome||'').replace(/'/g,"\\'")}')"><i class="fa-solid fa-trash"></i></button>
+        </div>
+      </div>
+      <div class="tipo-var-opcoes">
+        ${(t.opcoes||[]).map(o => `<span class="chip-opcao">${o}</span>`).join("") || '<span style="font-size:.78rem;color:var(--muted)">Sem opções</span>'}
+      </div>
+    </div>`).join("");
+}
+
+// Enquanto o modal de tipo de variação está aberto, as opções ficam nesta
+// lista em memória (arrays de texto) até o usuário clicar em Salvar.
+let _opcoesTipoVariacaoEmEdicao = [];
+
+function renderizarChipsEdicaoTipoVariacao() {
+  const cont = document.getElementById("tipo-var-opcoes-lista");
+  if (!_opcoesTipoVariacaoEmEdicao.length) {
+    cont.innerHTML = `<span style="font-size:.78rem;color:var(--muted)">Nenhuma opção adicionada ainda.</span>`;
+    return;
+  }
+  cont.innerHTML = _opcoesTipoVariacaoEmEdicao.map(o => `
+    <span class="chip-opcao-editavel">${o} <button type="button" onclick="removerOpcaoTipoVariacao('${o.replace(/'/g,"\\'")}')" title="Remover"><i class="fa-solid fa-xmark"></i></button></span>
+  `).join("");
+}
+
+function adicionarOpcaoTipoVariacao() {
+  const input = document.getElementById("tipo-var-opcao-input");
+  const valor = input.value.trim();
+  if (!valor) return;
+  if (_opcoesTipoVariacaoEmEdicao.some(o => o.toLowerCase() === valor.toLowerCase())) {
+    toast("Essa opção já foi adicionada.", "err");
+    return;
+  }
+  _opcoesTipoVariacaoEmEdicao.push(valor);
+  input.value = "";
+  input.focus();
+  renderizarChipsEdicaoTipoVariacao();
+}
+
+function removerOpcaoTipoVariacao(valor) {
+  const docIdOriginal = document.getElementById("tipo-var-id-original").value;
+  if (docIdOriginal) {
+    const emUsoPor = produtosQueUsamOpcaoDeVariacao(docIdOriginal, valor);
+    if (emUsoPor.length) {
+      toast(`"${valor}" está em uso em: ${emUsoPor.join(", ")}. Remova essa opção dos produtos antes.`, "err");
+      return;
+    }
+  }
+  _opcoesTipoVariacaoEmEdicao = _opcoesTipoVariacaoEmEdicao.filter(o => o !== valor);
+  renderizarChipsEdicaoTipoVariacao();
+}
+
+function abrirModalTipoVariacao() {
+  document.getElementById("tipo-variacao-titulo").innerHTML = '<i class="fa-solid fa-plus"></i> Novo tipo de variação';
+  document.getElementById("tipo-var-id-original").value = "";
+  document.getElementById("tipo-var-nome").value = "";
+  document.getElementById("tipo-var-opcao-input").value = "";
+  _opcoesTipoVariacaoEmEdicao = [];
+  renderizarChipsEdicaoTipoVariacao();
+  abrirModal("modal-tipo-variacao");
+}
+
+function abrirModalTipoVariacaoEditar(docId) {
+  const t = todosTiposVariacao.find(x => x.docId === docId);
+  if (!t) return;
+  document.getElementById("tipo-variacao-titulo").innerHTML = '<i class="fa-solid fa-pen"></i> Editar tipo de variação';
+  document.getElementById("tipo-var-id-original").value = docId;
+  document.getElementById("tipo-var-nome").value = t.nome || "";
+  document.getElementById("tipo-var-opcao-input").value = "";
+  _opcoesTipoVariacaoEmEdicao = [...(t.opcoes || [])];
+  renderizarChipsEdicaoTipoVariacao();
+  abrirModal("modal-tipo-variacao");
+}
+
+async function salvarTipoVariacao() {
+  const docIdOriginal = document.getElementById("tipo-var-id-original").value;
+  const nome = document.getElementById("tipo-var-nome").value.trim();
+  if (!nome) { toast("Preencha o nome do tipo.", "err"); return; }
+  if (!_opcoesTipoVariacaoEmEdicao.length) { toast("Adicione ao menos uma opção.", "err"); return; }
+
+  try {
+    if (docIdOriginal) {
+      const atual = todosTiposVariacao.find(x => x.docId === docIdOriginal);
+      const id = atual?.id || docIdOriginal;
+      await db.collection("tiposVariacao").doc(docIdOriginal).update({ nome, id, opcoes: _opcoesTipoVariacaoEmEdicao });
+    } else {
+      const id = slugify(nome);
+      await db.collection("tiposVariacao").doc(id).set({ nome, id, opcoes: _opcoesTipoVariacaoEmEdicao });
+    }
+    toast("Tipo de variação salvo!", "ok");
+    fecharModal("modal-tipo-variacao");
+    await carregarTiposVariacao();
+  } catch(e) { toast("Erro: " + e.message, "err"); }
+}
+
+// Lista os nomes dos produtos que usam uma opção específica de um tipo —
+// usado pra bloquear exclusão/remoção quando "está em uso".
+function produtosQueUsamOpcaoDeVariacao(tipoId, opcao) {
+  return todosProdutos
+    .filter(p => (p.variacoes || []).some(v => v.tipoId === tipoId && (v.opcoes || []).includes(opcao)))
+    .map(p => p.nome);
+}
+
+// Lista os nomes dos produtos que usam QUALQUER opção de um tipo inteiro —
+// usado pra bloquear a exclusão do tipo todo.
+function produtosQueUsamTipoDeVariacao(tipoId) {
+  return todosProdutos
+    .filter(p => (p.variacoes || []).some(v => v.tipoId === tipoId))
+    .map(p => p.nome);
+}
+
+function confirmarExclusaoTipoVariacao(docId, nome) {
+  const emUsoPor = produtosQueUsamTipoDeVariacao(docId);
+  if (emUsoPor.length) {
+    toast(`"${nome}" está em uso em: ${emUsoPor.join(", ")}. Remova essa variação desses produtos antes de excluir.`, "err");
+    return;
+  }
+  document.getElementById("confirm-msg").textContent = `Excluir o tipo de variação "${nome}"? Esta ação não pode ser desfeita.`;
+  document.getElementById("confirm-ok-btn").onclick = async () => {
+    try {
+      await db.collection("tiposVariacao").doc(docId).delete();
+      toast("Excluído com sucesso.", "ok");
+      fecharModal("confirm-modal");
+      await carregarTiposVariacao();
+    } catch(e) { toast("Erro: " + e.message, "err"); }
+  };
+  abrirModal("confirm-modal");
 }
 
 // ── CUPONS ────────────────────────────────────────────────────────────────

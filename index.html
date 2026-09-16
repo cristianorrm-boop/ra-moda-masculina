@@ -16,6 +16,11 @@
     <link rel="stylesheet" href="style.css" />
     <title>RA Moda Masculina</title>
 
+    <!-- App instalável (PWA) -->
+    <link rel="manifest" href="./manifest.json" />
+    <meta name="theme-color" content="#0EA5A6" />
+    <link rel="apple-touch-icon" href="./assets/ra-sistema-logo.jpeg" />
+
     <!-- Prévia ao compartilhar o link (WhatsApp, redes sociais, etc.) -->
     <!-- TODO: quando o site tiver um domínio próprio, trocar og:url pela URL final -->
     <meta property="og:type" content="website">
@@ -71,6 +76,26 @@
     <main class="products">
         <div class="products-container"><!-- cards gerados pelo script --></div>
     </main>
+
+    <div class="product-modal-overlay" id="product-modal-overlay">
+        <div class="product-modal" role="dialog" aria-modal="true">
+            <button class="product-modal-close" id="product-modal-close" aria-label="Fechar">&times;</button>
+            <div class="product-modal-img-wrap">
+                <img id="product-modal-img" src="" alt="" loading="lazy"
+                     onerror="this.onerror=null;this.src='./assets/placeholder.svg'">
+                <span class="destaque-badge" id="product-modal-destaque" style="display:none">
+                    <i class="fa-solid fa-star" aria-hidden="true"></i> Destaque
+                </span>
+            </div>
+            <div class="product-modal-info">
+                <h3 id="product-modal-nome"></h3>
+                <p id="product-modal-descricao" class="product-modal-descricao"></p>
+                <div id="product-modal-variacoes"></div>
+                <p id="product-modal-preco" class="product-modal-preco"></p>
+                <button id="product-modal-comprar" class="product-button">Comprar</button>
+            </div>
+        </div>
+    </div>
 
     <div class="cart-overlay"></div>
 
@@ -209,6 +234,13 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
     <script src="./firebase-config.js"></script>
     <script src="./script.js"></script>
+    <script>
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", () => {
+                navigator.serviceWorker.register("./sw.js").catch(() => { });
+            });
+        }
+    </script>
 </body>
 
 </html>

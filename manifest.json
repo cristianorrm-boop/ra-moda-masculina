@@ -1,0 +1,22 @@
+{
+  "name": "RA Moda Masculina",
+  "short_name": "RA Moda Masculina",
+  "description": "Moda masculina com estilo e o melhor preço",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#FFFFFF",
+  "theme_color": "#0EA5A6",
+  "icons": [
+    {
+      "src": "./assets/ra-sistema-logo.jpeg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "./assets/ra-sistema-logo.jpeg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}
