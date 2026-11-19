@@ -53,6 +53,9 @@
     tituloCategorias: "Categorias",
     tituloDestaques: "Produtos em destaque",
     qtdDestaques: 8,
+    mostrarPromocoes: false, // desligado por padrão: só liga quando a usuária marcar produtos em promoção
+    tituloPromocoes: "Em promoção",
+    qtdPromocoes: 8,
     tituloLocalizacao: "Localização",
     tituloContato: "Contato",
     textoContato: "Fale com a gente pelo WhatsApp.",

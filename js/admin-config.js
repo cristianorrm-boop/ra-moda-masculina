@@ -178,10 +178,13 @@ window.Admin.modulos.push((A) => {
       inicio: `
         ${titulo("Seções da página inicial", "A página inicial mostra, nesta ordem: banner, categorias, produtos em destaque, localização e contato.")}
         ${grade(marcar("Categorias", "mostrarCategorias", c.mostrarCategorias), marcar("Produtos em destaque", "mostrarDestaques", c.mostrarDestaques),
+                marcar("Em promoção", "mostrarPromocoes", c.mostrarPromocoes),
                 marcar("Localização", "mostrarLocalizacao", c.mostrarLocalizacao), marcar("Contato", "mostrarContato", c.mostrarContato))}
         ${titulo("Títulos e textos")}
         ${grade(campo("Título das categorias", "tituloCategorias", c.tituloCategorias), campo("Título dos destaques", "tituloDestaques", c.tituloDestaques),
                 numero("Quantidade de produtos em destaque", "qtdDestaques", c.qtdDestaques, 'min="1" max="24" step="1"', "Marque os destaques em Produtos → editar produto. Sem nenhum marcado, aparecem os disponíveis."),
+                campo("Título da seção de promoções", "tituloPromocoes", c.tituloPromocoes),
+                numero("Quantidade de produtos em promoção", "qtdPromocoes", c.qtdPromocoes, 'min="1" max="24" step="1"', "Marque os produtos em promoção em Produtos → editar produto."),
                 campo("Título da localização", "tituloLocalizacao", c.tituloLocalizacao), campo("Título do contato", "tituloContato", c.tituloContato))}
         ${area("Texto da seção de contato", "textoContato", c.textoContato)}
         ${titulo("Página de produtos")}
@@ -395,8 +398,9 @@ window.Admin.modulos.push((A) => {
         fonte: f("fonte"), cantos: f("cantos"),
         logoUrl: f("logoEndereco") || dados.logo, bannerUrl: f("bannerEndereco") || dados.banner,
         bannerTitulo: f("bannerTitulo"), bannerTexto: f("bannerTexto"), bannerBotao: f("bannerBotao"),
-        mostrarCategorias: on("mostrarCategorias"), mostrarDestaques: on("mostrarDestaques"), mostrarLocalizacao: on("mostrarLocalizacao"), mostrarContato: on("mostrarContato"),
+        mostrarCategorias: on("mostrarCategorias"), mostrarDestaques: on("mostrarDestaques"), mostrarPromocoes: on("mostrarPromocoes"), mostrarLocalizacao: on("mostrarLocalizacao"), mostrarContato: on("mostrarContato"),
         tituloCategorias: f("tituloCategorias"), tituloDestaques: f("tituloDestaques"), qtdDestaques: Math.min(24, Math.max(1, parseInt(f("qtdDestaques"), 10) || 8)),
+        tituloPromocoes: f("tituloPromocoes"), qtdPromocoes: Math.min(24, Math.max(1, parseInt(f("qtdPromocoes"), 10) || 8)),
         tituloLocalizacao: f("tituloLocalizacao"), tituloContato: f("tituloContato"), textoContato: f("textoContato"),
         tituloProdutos: f("tituloProdutos"), subtituloProdutos: f("subtituloProdutos"), mostrarZapProdutos: on("mostrarZapProdutos"),
         entregaAtiva: on("entregaAtiva"), retiradaAtiva: on("retiradaAtiva"),
