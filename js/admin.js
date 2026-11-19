@@ -561,23 +561,25 @@ document.addEventListener("DOMContentLoaded", () => {
     carregando("categorias");
     const [categorias, prods] = await Promise.all([DB.categorias.listar(), DB.produtos.listar()]);
     const existe = (id) => categorias.some((x) => x.id === id);
-    const raizes = categorias.filter((c) => !c.pai || !existe(c.pai)).sort((x, y) => x.nome.localeCompare(y.nome, "pt-BR"));
-    const filhos = (id) => categorias.filter((c) => c.pai === id).sort((x, y) => x.nome.localeCompare(y.nome, "pt-BR"));
+    const porOrdem = (x, y) => (x.ordem ?? Infinity) - (y.ordem ?? Infinity) || x.nome.localeCompare(y.nome, "pt-BR");
+    const raizes = categorias.filter((c) => !c.pai || !existe(c.pai)).sort(porOrdem);
+    const filhos = (id) => categorias.filter((c) => c.pai === id).sort(porOrdem);
     const linhas = [];
     raizes.forEach((r) => { linhas.push([r, false]); filhos(r.id).forEach((f) => linhas.push([f, true])); });
     $("#tab-categorias").innerHTML = `
       <div class="cab"><h1>Categorias</h1><button class="btn" id="nova-cat"><i class="fa-solid fa-plus"></i> Nova categoria</button></div>
       <p class="dica" style="margin-bottom:10px">Uma categoria pode ter subcategorias (escolha a "Categoria pai" ao editar). Na loja, a categoria pai mostra também os produtos das subcategorias.</p>
-      <table><thead><tr><th>Foto / ícone</th><th>Nome</th><th>Produtos</th><th></th></tr></thead><tbody>
+      <table><thead><tr><th>Foto / ícone</th><th>Nome</th><th>Ordem</th><th>Produtos</th><th></th></tr></thead><tbody>
       ${linhas.map(([c, sub]) => `<tr><td>${c.imagem ? `<img class="thumb-cat" src="${esc(c.imagem)}" alt="" />` : `<i class="fa-solid ${esc(c.icone || "fa-tag")}"></i>`}</td>
         <td>${sub ? '<span class="dica">↳</span> ' : ""}<b>${esc(c.nome)}</b>${!sub && filhos(c.id).length ? ` <small class="dica">(${filhos(c.id).length} subcategorias)</small>` : ""}</td>
+        <td>${c.ordem ?? '<span class="dica">—</span>'}</td>
         <td>${prods.filter((p) => p.categoria === c.id).length}</td>
-        <td class="acoes"><button class="btn sec peq" data-edit="${c.id}">Editar</button> <button class="btn perigo peq" data-del="${c.id}">Excluir</button></td></tr>`).join("") || `<tr><td colspan="4" class="vazio">Nenhuma categoria.</td></tr>`}
+        <td class="acoes"><button class="btn sec peq" data-edit="${c.id}">Editar</button> <button class="btn perigo peq" data-del="${c.id}">Excluir</button></td></tr>`).join("") || `<tr><td colspan="5" class="vazio">Nenhuma categoria.</td></tr>`}
       </tbody></table>`;
     $("#nova-cat").onclick = () => formCategoria();
   };
   async function formCategoria(id) {
-    const c = id ? await DB.categorias.obter(id) : { nome: "", icone: "fa-tag", pai: "", imagem: "" };
+    const c = id ? await DB.categorias.obter(id) : { nome: "", icone: "fa-tag", pai: "", imagem: "", ordem: "" };
     let imagem = c.imagem || "";
     const todas = await DB.categorias.listar();
     // só categorias principais podem ser "pai" (um nível de subcategorias); uma categoria que já tem filhas não vira subcategoria
@@ -585,6 +587,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const possiveis = todas.filter((x) => x.id !== id && !x.pai).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
     abrirModal(id ? "Editar categoria" : "Nova categoria", `
       <label>Nome<input name="nome" value="${esc(c.nome)}" required /></label>
+      <label>Ordem de exibição (número — menor aparece primeiro; deixe em branco para ordem alfabética)<input type="number" name="ordem" value="${c.ordem ?? ""}" min="1" step="1" /></label>
       <label>Foto da categoria (envie um arquivo ou cole uma URL)
         <input type="file" id="cat-arquivo" accept="image/*" />
         <input name="imagemUrl" id="cat-url" placeholder="https://..." value="${c.imagem && !c.imagem.startsWith("data:") ? esc(c.imagem) : ""}" />
@@ -597,7 +600,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <small class="dica">${temFilhas ? "Esta categoria já tem subcategorias, por isso não pode ser subcategoria de outra." : "Escolha uma para criar uma subcategoria (ex.: Masculino → Camisetas)."}</small>
       </label>`,
       async (d) => {
-        if (!(await tentar(() => DB.categorias.salvar({ ...c, nome: d.nome.trim(), icone: d.icone.trim() || "fa-tag", pai: temFilhas ? "" : (d.pai || ""), imagem: d.imagemUrl.trim() || imagem })))) return false;
+        if (!(await tentar(() => DB.categorias.salvar({ ...c, nome: d.nome.trim(), icone: d.icone.trim() || "fa-tag", pai: temFilhas ? "" : (d.pai || ""), imagem: d.imagemUrl.trim() || imagem, ordem: d.ordem.trim() === "" ? null : parseInt(d.ordem, 10) })))) return false;
         abrirTab("categorias"); toast("Categoria salva");
       });
     const mostrarFoto = (src) => { const im = $("#cat-prev"); if (src) im.src = src; else im.removeAttribute("src"); im.hidden = !src; $("#cat-remover").hidden = !src; };
