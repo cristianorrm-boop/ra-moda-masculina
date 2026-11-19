@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Migrar dados — RA Moda Masculina</title>
+  <!-- Utilitário de uso único: migra os 6 produtos e 5 categorias existentes pro formato
+       do loja-online (mantendo nome/categoria/preço/imagem/descrição/destaque/ativo,
+       acrescentando os campos novos com valor padrão), combina a variação dupla da
+       Camiseta Polo Levi's (Cor x Tamanho) em uma lista só de 6 opções, ajusta o cupom
+       (valorMinimo -> minimo), semeia configuracoes/geral (se ainda não existir) com os
+       valores reais do site antigo, e remove a coleção tiposVariacao. Não apaga produtos
+       nem pedidos. Pode rodar mais de uma vez sem problema. -->
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #0f172a; color: #eee; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
+    h1 { font-size: 1.4rem; margin-bottom: 8px; color: #0ea5a6; }
+    p  { font-size: .9rem; color: #aaa; margin-bottom: 24px; text-align: center; max-width: 560px; }
+    #btn { padding: 14px 36px; background: #0ea5a6; color: #000; font-size: 1rem; font-weight: 700; border: none; border-radius: 8px; cursor: pointer; transition: opacity .2s; }
+    #btn:disabled { opacity: .45; cursor: not-allowed; }
+    #log  { margin-top: 24px; width: 100%; max-width: 560px; background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 16px; font-size: .8rem; font-family: monospace; max-height: 400px; overflow-y: auto; }
+    #login-box { display: flex; flex-direction: column; gap: 10px; width: 100%; max-width: 320px; margin-bottom: 20px; }
+    #login-box input { padding: 12px; border-radius: 6px; border: 1px solid #333; background: #1a1a1a; color: #eee; font-size: .9rem; }
+    #login-error { color: #f44336; font-size: .8rem; display: none; }
+    .ok   { color: #4caf50; }
+    .err  { color: #f44336; }
+    .info { color: #90caf9; }
+  </style>
+</head>
+<body>
+
+<h1>Migrar dados — RA Moda Masculina</h1>
+<p>Faça login com o usuário admin e clique no botão. Isso atualiza os 6 produtos e 5 categorias
+  pro formato novo (mantendo nome, categoria, preço, foto, descrição), combina a variação da
+  Camiseta Polo Levi's, ajusta o cupom e cria as configurações da loja. Pode rodar quantas vezes quiser.</p>
+
+<div id="login-box">
+  <input type="email" id="email-input" placeholder="E-mail do admin">
+  <input type="password" id="senha-input" placeholder="Senha">
+  <button id="login-btn">🔐 Entrar</button>
+  <span id="login-error">E-mail ou senha inválidos.</span>
+</div>
+
+<button id="btn" disabled>🔄 Migrar dados</button>
+
+<div id="log"><span class="info">Faça login para habilitar a migração.</span></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="./firebase-config.js"></script>
+
+<script>
+firebase.initializeApp(window.firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+
+const log = document.getElementById("log");
+const btn = document.getElementById("btn");
+const loginBtn = document.getElementById("login-btn");
+const loginBox = document.getElementById("login-box");
+const loginError = document.getElementById("login-error");
+
+const addLog = (msg, tipo = "ok") => {
+  const span = document.createElement("span");
+  span.className = tipo;
+  span.textContent = msg;
+  log.appendChild(span);
+  log.appendChild(document.createElement("br"));
+  log.scrollTop = log.scrollHeight;
+};
+
+loginBtn.addEventListener("click", () => {
+  const email = document.getElementById("email-input").value.trim();
+  const senha = document.getElementById("senha-input").value;
+  loginError.style.display = "none";
+  auth.signInWithEmailAndPassword(email, senha).catch(() => {
+    loginError.style.display = "block";
+  });
+});
+
+auth.onAuthStateChanged(user => {
+  if (user) {
+    loginBox.style.display = "none";
+    btn.disabled = false;
+    log.innerHTML = "";
+    addLog(`✔ Logado como ${user.email}. Pronto pra migrar.`, "ok");
+  } else {
+    loginBox.style.display = "flex";
+    btn.disabled = true;
+  }
+});
+
+// Camiseta Polo Levi's (produto id "1") tinha duas dimensões de variação (Cor x Tamanho).
+// Combinadas em uma lista só, conforme decisão da usuária.
+const VARIANTES_PRODUTO_1 = [
+  { id: "v1", nome: "Azul - P", estoque: 0 },
+  { id: "v2", nome: "Azul - M", estoque: 0 },
+  { id: "v3", nome: "Azul - G", estoque: 0 },
+  { id: "v4", nome: "Preto - P", estoque: 0 },
+  { id: "v5", nome: "Preto - M", estoque: 0 },
+  { id: "v6", nome: "Preto - G", estoque: 0 },
+];
+
+// Valores reais hoje hardcoded no script.js antigo (CONFIG_PADRAO) — usados só se
+// configuracoes/geral ainda não existir, pra não sobrescrever o que a usuária já editou.
+const CONFIG_INICIAL = {
+  nomeLoja: "RA Moda Masculina",
+  whatsapp: "558182362638",
+  corPrimaria: "#0EA5A6",
+  corSecundaria: "#0F172A",
+  corDestaque: "#C5A049",
+  retiradaDias: [0, 1, 2, 3, 4, 5, 6],
+  retiradaHoraInicio: "08:00",
+  retiradaHoraFim: "18:00",
+  retiradaIntervalo: 60,
+};
+
+// Apaga todos os documentos de uma coleção, em lotes de até 400.
+async function apagarColecao(nome) {
+  const snap = await db.collection(nome).get();
+  if (snap.empty) { addLog(`– ${nome}: já estava vazia`, "info"); return 0; }
+  const docs = snap.docs;
+  for (let i = 0; i < docs.length; i += 400) {
+    const batch = db.batch();
+    docs.slice(i, i + 400).forEach(d => batch.delete(d.ref));
+    await batch.commit();
+  }
+  addLog(`✔ ${nome}: ${docs.length} documento(s) apagado(s)`, "ok");
+  return docs.length;
+}
+
+btn.addEventListener("click", async () => {
+  btn.disabled = true;
+  log.innerHTML = "";
+  addLog("▶ Iniciando migração...", "info");
+
+  // 1) Categorias: mantém nome/ícone/ordem como já estão (sem bug de nome trocado aqui)
+  try {
+    const snap = await db.collection("categorias").get();
+    for (const doc of snap.docs) {
+      const d = doc.data();
+      await db.collection("categorias").doc(doc.id).set({
+        nome: d.nome, icone: d.icone || "fa-tag", ordem: d.ordem ?? null,
+      });
+    }
+    addLog(`✔ categorias: ${snap.size} revisada(s)`, "ok");
+  } catch (e) {
+    addLog(`✘ categorias — ${e.message}`, "err");
+  }
+
+  // 2) Produtos: mantém o que já existe, acrescenta os campos novos do loja-online.
+  // Descarta "imagem2" (não usado no sistema novo). O produto "1" (Camiseta Polo Levi's)
+  // recebe as 6 variações combinadas (Cor x Tamanho); os demais ficam sem variação.
+  try {
+    const snap = await db.collection("produtos").get();
+    for (const doc of snap.docs) {
+      const d = doc.data();
+      await db.collection("produtos").doc(doc.id).set({
+        nome: d.nome, categoria: d.categoria, preco: Number(d.preco) || 0,
+        imagem: d.imagem || "", descricao: d.descricao || "",
+        destaque: !!d.destaque, ativo: d.ativo !== false,
+        estoque: 0, codigo: d.codigo || null,
+        estoqueMinimo: d.estoqueMinimo ?? null, custo: d.custo ?? null,
+        precoAntigo: d.precoAntigo ?? null,
+        variantes: doc.id === "1" ? VARIANTES_PRODUTO_1 : (d.variantes || []),
+      });
+    }
+    addLog(`✔ produtos: ${snap.size} atualizado(s) pro formato novo`, "ok");
+  } catch (e) {
+    addLog(`✘ produtos — ${e.message}`, "err");
+  }
+
+  // 3) Cupons: reescreve "valorMinimo" -> "minimo"
+  try {
+    const snap = await db.collection("cupons").get();
+    for (const doc of snap.docs) {
+      const d = doc.data();
+      await db.collection("cupons").doc(doc.id).set({
+        codigo: d.codigo, tipo: d.tipo, valor: d.valor,
+        minimo: d.minimo ?? d.valorMinimo ?? 0,
+        ativo: d.ativo !== false,
+      });
+    }
+    addLog(`✔ cupons: ${snap.size} migrado(s) pro formato novo`, "ok");
+  } catch (e) {
+    addLog(`✘ cupons — ${e.message}`, "err");
+  }
+
+  // 4) Configurações: cria configuracoes/geral só se ainda não existir
+  try {
+    const ref = db.collection("configuracoes").doc("geral");
+    const atual = await ref.get();
+    if (atual.exists) {
+      addLog("– configuracoes/geral: já existe, não foi alterada", "info");
+    } else {
+      await ref.set(CONFIG_INICIAL);
+      addLog("✔ configuracoes/geral: criada com os valores da loja", "ok");
+    }
+  } catch (e) {
+    addLog(`✘ configuracoes — ${e.message}`, "err");
+  }
+
+  // 5) tiposVariacao: coleção do modelo antigo (cor/tamanho globais), substituída por
+  // variantes por produto — removida após a migração.
+  try { await apagarColecao("tiposVariacao"); } catch (e) { addLog(`✘ tiposVariacao — ${e.message}`, "err"); }
+
+  addLog("", "info");
+  addLog("━━━ CONCLUÍDO ━━━", "info");
+  btn.disabled = false;
+});
+</script>
+</body>
+</html>
