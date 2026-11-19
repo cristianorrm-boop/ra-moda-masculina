@@ -1,62 +1,86 @@
-# Regras do Firestore — RA Moda Masculina
-
-Copie o bloco abaixo e cole no Console do Firebase:
-
-**Firestore Database → Regras** → apague o conteúdo atual → cole isto → **Publicar**.
-
-```
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // E-mails com acesso de administrador (cadastre o mesmo e-mail em Authentication → Users)
+    function emailsAdmin() {
+      return ['admin@gmail.com'];
+    }
+
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.email != null
+        && request.auth.token.email.lower() in emailsAdmin();
+    }
+
     match /produtos/{doc} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if isAdmin();
     }
 
     match /categorias/{doc} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if isAdmin();
     }
 
     match /cupons/{doc} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if isAdmin();
     }
 
     match /configuracoes/{doc} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow write: if isAdmin();
     }
 
+    match /fretes/{doc} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Consulta pública do cliente: só por código (get). Listar é do admin.
+    // Não guarda telefone nem endereço.
+    match /acompanhamento/{codigo} {
+      allow get: if true;
+      allow list: if isAdmin();
+      allow create: if isAdmin()
+                    || (request.resource.data.status == 'novo'
+                        && request.resource.data.codigo == codigo
+                        && codigo.size() >= 8 && codigo.size() <= 12);
+      allow update, delete: if isAdmin();
+    }
+
+    // Gestão interna (PDV, caixa e financeiro): só administrador
     match /vendas/{doc} {
-      allow read, write: if request.auth != null;
+      allow read, write: if isAdmin();
+    }
+
+    match /caixas/{doc} {
+      allow read, write: if isAdmin();
+    }
+
+    match /contas/{doc} {
+      allow read, write: if isAdmin();
+    }
+
+    match /movimentos/{doc} {
+      allow read, write: if isAdmin();
+    }
+
+    match /clientes/{doc} {
+      allow read, write: if isAdmin();
     }
 
     match /pedidos/{doc} {
-      allow create: if true;
-      allow read, update, delete: if request.auth != null;
-    }
-
-    match /tiposVariacao/{doc} {
-      allow read: if true;
-      allow write: if request.auth != null;
+      allow create: if request.resource.data.codigo == doc
+                    && request.resource.data.keys().hasAll(['itens', 'total', 'tipo', 'cliente', 'status', 'codigo'])
+                    && request.resource.data.status == 'novo'
+                    && request.resource.data.itens is list
+                    && request.resource.data.itens.size() > 0
+                    && request.resource.data.itens.size() <= 50
+                    && request.resource.data.total is number
+                    && request.resource.data.total >= 0;
+      allow read, update, delete: if isAdmin();
     }
   }
 }
-```
-
-## O que essas regras fazem
-
-- **produtos, categorias, cupons, configuracoes, tiposVariacao**: qualquer visitante da loja pode *ler* (necessário para o site funcionar sem login), mas só usuários logados no admin podem *escrever* (criar, editar, excluir).
-- **vendas**: dado sensível (faturamento) — só usuários logados podem ler ou escrever. Não é público.
-- **pedidos**: histórico de pedidos feitos pelo site. Qualquer visitante pode *criar* um pedido (é o próprio cliente, no checkout, que grava), mas só o admin logado pode *ler, editar ou apagar* — sem essa restrição, qualquer pessoa poderia ver nome, telefone e endereço de todos os clientes que já compraram.
-
-## Pré-requisito
-
-Essas regras só funcionam depois de:
-1. Criar o projeto no Firebase e preencher o `firebaseConfig` em `admin.html`.
-2. Ativar **Authentication → Sign-in method → E-mail/senha**.
-3. Criar o usuário admin em **Authentication → Users**.
-
-Sem isso, `request.auth` nunca será preenchido e as escritas ficarão bloqueadas até o login por e-mail/senha estar configurado.
