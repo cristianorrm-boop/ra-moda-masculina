@@ -1,0 +1,17 @@
+{
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "dark-glow",
+        "value": "*",
+        "files": [
+          "css/admin.css"
+        ],
+        "createdAt": "2026-11-19T14:04:52.241Z",
+        "reason": "Linha vermelha do scanner de código de barras (câmera do PDV) simula um laser real — efeito funcional intencional, não decoração"
+      }
+    ]
+  }
+}
